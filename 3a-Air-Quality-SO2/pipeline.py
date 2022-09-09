@@ -45,7 +45,7 @@ Input:
 
 ================================================================================
 """
-def ZiptoZcta_Crosswalk_X(ZiptoZcta_Crosswalk_2021_updated22, ZiptoZcta_Crosswalk_2021_ziptozcta2020):
+def ZiptoZcta_Crosswalk(ZiptoZcta_Crosswalk_2021_updated22, ZiptoZcta_Crosswalk_2021_ziptozcta2020):
 
     return ZiptoZcta_Crosswalk_2021_updated22.union(ZiptoZcta_Crosswalk_2021_ziptozcta2020)
     
@@ -277,7 +277,7 @@ def monitors_nearby(zcta_monitors_filter, pf_zip_zcta):
 
     cohort_zip_zcta_distinct_df = pf_zip_zcta.select('zip_code','zcta').dropDuplicates()
 
-    monitors_near_zip_df        = cohort_zip_zcta_distinct_df.join(zcta_monitors_filter, 'zcta', 'inner')
+    monitors_near_zip_df        = cohort_zip_zcta_distinct_df.join(zcta_monitors_filter, 'zcta', 'inner').dropDuplicates()
 
     # if NEAREST_MONITOR_ONLY == True:
     #     val w = Window.partitionBy($"id")
@@ -297,7 +297,7 @@ def monitors_nearby(zcta_monitors_filter, pf_zip_zcta):
 """
 ================================================================================
 Author: Elliott Fisher (elliott.fisher@duke.edu)
-Date:   2022-07-05
+Date:   2022-09-09
 
 Description:
 Gets distint ZIP Codes from Covid+ patients. 
@@ -312,11 +312,12 @@ Input:
 """
 def pf_zip_code(COVID_POS_PERSON_FACT):
 
-    USE_SAMPLE = True
+    USE_SAMPLE = False
 
     if USE_SAMPLE == True:
-        # returns one person from zip_code = 10035, born in 1935, has covid-associated hospitalization, etc., 
-        df = COVID_POS_PERSON_FACT.filter(F.col('person_id') == '2995272647743632189').select('zip_code').distinct()
+        # For testing: Fill in empty quotes with person_id from 
+        # COVID_POS_PERSON_FACT with a zip_code = 10035
+        df = COVID_POS_PERSON_FACT.filter(F.col('person_id') == '').select('zip_code').distinct()
     else:
         df = COVID_POS_PERSON_FACT.select('zip_code').distinct()
 
@@ -324,7 +325,7 @@ def pf_zip_code(COVID_POS_PERSON_FACT):
 
 @transform_pandas(
     Output(rid="ri.foundry.main.dataset.29aaf3f0-4b57-4d0e-841f-1529a5059433"),
-    ZiptoZcta_Crosswalk=Input(rid="ri.foundry.main.dataset.e0b7c411-d034-4828-a522-e9709f3e3746"),
+    ZiptoZcta_Crosswalk=Input(rid="ri.foundry.main.dataset.1323a4e6-4ecf-4a72-9120-a6a6001dbce4"),
     pf_zip_code=Input(rid="ri.foundry.main.dataset.1ed9868e-78ed-462a-aa02-4c208be9fc8f")
 )
 """
@@ -344,6 +345,7 @@ Input:
 ================================================================================
 """
 def pf_zip_zcta(pf_zip_code, ZiptoZcta_Crosswalk):
+
     
     # lower case column names
     zip_to_zcta_df = ZiptoZcta_Crosswalk.select(F.col('ZIP_CODE').alias('zip_code'), F.col('ZCTA').alias('zcta'))
@@ -464,7 +466,7 @@ def so2_aggregations(so2_only):
              F.max("date").alias("max_date"))
         .select("aqs_site_id", F.expr("sequence(min_date, max_date)").alias("date"))
         .withColumn("date", F.explode("date"))
-        .withColumn("date", F.date_format("date", "yyyy-MM-dd"))        
+        .withColumn("date", F.to_date("date", "yyyy-MM-dd"))        
     )
 
     # Join in rows for missing dates
@@ -553,12 +555,12 @@ def so2_only(Daily_AirPollution_for_N3C):
 
 @transform_pandas(
     Output(rid="ri.foundry.main.dataset.b8b5a54e-6e46-4d41-bd9d-00dfcde420bf"),
-    ZCTA_MONITOR=Input(rid="ri.foundry.main.dataset.3fc0ff9c-1f83-47de-b46a-110cc8fb9ed7")
+    ZCTA_Monitor_Pairs_Within_or_Within20km=Input(rid="ri.foundry.main.dataset.198610c4-b080-4c4c-b315-416055315094")
 )
 """
 ================================================================================
 Author: Elliott Fisher (elliott.fisher@duke.edu)
-Date:   2022-08-10
+Date:   2022-09-09
 
 Description:
 ZCTAs within 20 km from monitor location (Lat/Long).
@@ -567,19 +569,27 @@ To get a subset of ZCTAs, set USE_SAMPLE = True
 To get all ZCTAs,         set USE_SAMPLE = False
 
 Input:
-1.  ZCTA_MONITOR
+1.  ZCTA_Monitor_Pairs_Within_or_Within20km
     ZCTAs within 20 km from monitor location (Lat/Long)
 ================================================================================
 """
-def zcta_monitors_filter(ZCTA_MONITOR):
+def zcta_monitors_filter( ZCTA_Monitor_Pairs_Within_or_Within20km):
     
-    USE_SAMPLE = True
+    # Lowercase / rename to match join in next transform
+    zcta_monitor_df = (
+        ZCTA_Monitor_Pairs_Within_or_Within20km
+        .withColumnRenamed('ZCTA', 'zcta')
+        .withColumnRenamed('Monitor_ID', 'aqs_site_id')
+        .select('zcta', 'aqs_site_id', 'Distance_m', 'WithinZCTA')        
+    ) 
+
+    USE_SAMPLE = False
 
     if USE_SAMPLE == True:
-        # Currently filters to ZCTA in East Harlem which is near 20 monitors
-        df = ZCTA_MONITOR.filter(F.col('zcta') == '10035').withColumnRenamed('monitor', 'aqs_site_id')
+        # filters to ZCTA in East Harlem which is near 20 monitors
+        df = zcta_monitor_df.filter(F.col('zcta') == '10035')
     else:
-        df = ZCTA_MONITOR.withColumnRenamed('monitor', 'aqs_site_id')
+        df = zcta_monitor_df
 
     return df    
 
@@ -610,6 +620,7 @@ def zip_all_monitor_obs(monitors_nearby, so2_aggregations):
             so2_aggregations
             .join(monitors_nearby, 'aqs_site_id', 'left')
             .filter(F.col('zip_code').isNotNull())
+            .dropDuplicates()
     )
 
     return zip_measurement_df    
@@ -623,7 +634,7 @@ def zip_all_monitor_obs(monitors_nearby, so2_aggregations):
 """
 ================================================================================
 Author: Elliott Fisher (elliott.fisher@duke.edu)
-Date:   2022-08-26
+Date:   2022-09-09
 
 Description:
 1. Rolls up observations by [zip_code, date] and produces:
@@ -668,23 +679,33 @@ def zip_daily_obs(zip_all_monitor_obs, so2_only):
     days = lambda i: i * 86400 
 
     # Creates window by casting timestamp to long (number of seconds) for previous 30 days
-    w = (Window.orderBy(F.col("date").cast("timestamp").cast('long')).rangeBetween(-days(30), -1))
+    w30 = (
+        Window
+        .partitionBy('zip_code')
+        .orderBy(F.col("date").cast("timestamp").cast('long'))
+        .rangeBetween(-days(30), -1)
+    )
 
     # Rolling averages and counts of measurements for previous 30 days
     zamo_prev_avg_df = (
         zamo_agg_df
-        .withColumn('prev_30_day_avg',      F.avg("measurement_avg"  ).over(w) )    
-        .withColumn('prev_30_days_w_obs',   F.count("measurement_avg").over(w) )    
+        .withColumn('prev_30_day_avg',      F.avg("measurement_avg"  ).over(w30) )    
+        .withColumn('prev_30_days_w_obs',   F.count("measurement_avg").over(w30) )    
     )
 
     # Creates window by casting timestamp to long (number of seconds) for previous 365 days
-    w = (Window.orderBy(F.col("date").cast("timestamp").cast('long')).rangeBetween(-days(365), -1))
+    w365 = (
+        Window
+        .partitionBy('zip_code')
+        .orderBy(F.col("date").cast("timestamp").cast('long'))
+        .rangeBetween(-days(365), -1)
+    )
 
     # Rolling averages and counts of measurements for previous 365 days
     zamo_prev_counts_df = (
         zamo_prev_avg_df
-        .withColumn('prev_365_day_avg',      F.avg("measurement_avg"  ).over(w) )    
-        .withColumn('prev_365_days_w_obs',   F.count("measurement_avg").over(w) )    
+        .withColumn('prev_365_day_avg',      F.avg("measurement_avg"  ).over(w365) )    
+        .withColumn('prev_365_days_w_obs',   F.count("measurement_avg").over(w365) )    
     )
 
     # Get SO2 ParameterName, ParameterName, and UnitsofMeasure from first rows
@@ -711,8 +732,6 @@ def zip_daily_obs(zip_all_monitor_obs, so2_only):
     )  
 
     return df
-
-    return zamo_agg_df
 
     
         
