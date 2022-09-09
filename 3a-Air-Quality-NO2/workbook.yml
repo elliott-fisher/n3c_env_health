@@ -1,0 +1,27 @@
+---
+rid: "ri.vector.main.workbook.983d49af-3cfe-425a-bbfd-9de85ee39499"
+repositoryRid: "ri.stemma.main.repository.bba4952e-2ee2-47e3-abca-bc1f62f15448"
+environmentRepositoryRid: null
+backingRepositoryRids:
+- "ri.transforms.python.artifacts.runtime"
+- "ri.vector.runtime.artifacts.repository"
+- "ri.artifacts.repository.crp.discovered-frobjects"
+- "ri.transforms.python.artifacts.repository"
+- "ri.artifact-bundles.conda-bundle-py3.artifacts.repository"
+- "ri.artifacts.repository.crp.discovered-foundry-ml-deep-learning"
+- "ri.foundry-ml.python.artifacts.library"
+- "ri.artifacts.repository.crp.discovered-rfilepaths"
+- "ri.artifacts.repository.artifactory.external-conda-anaconda"
+- "ri.artifacts.repository.artifactory.internal-conda-thirdparty"
+- "ri.artifacts.repository.artifactory.external-conda-bioconda"
+- "ri.artifacts.repository.artifactory.external-conda-forge"
+- "ri.artifacts.repository.artifactory.external-conda-anacondar"
+- "ri.artifacts.repository.artifactory.internal-docker-release"
+outputFolderRid: "ri.compass.main.folder.c314492c-917f-4dc9-8779-dca9422d61c6"
+comparisonParentFolderRid: "ri.compass.main.folder.f7295b2e-38ca-408a-b3c5-f7e8fbee6826"
+legacyVectorLanguage: null
+autoLayoutPaths: false
+useProjectScope: true
+tokenMode: "SCOPED_TOKEN"
+duplicatedFromWorkbook: null
+workbookType: "DEFAULT"
